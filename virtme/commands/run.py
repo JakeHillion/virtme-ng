@@ -37,6 +37,9 @@ from ..util import SilentError, find_binary_or_raise, get_username
 
 
 def make_parser() -> argparse.ArgumentParser:
+    def colon_list(s):
+        return s.split(":")
+
     parser = argparse.ArgumentParser(
         description="Virtualize your system (or another) under a kernel image",
     )
@@ -338,6 +341,15 @@ def make_parser() -> argparse.ArgumentParser:
 
     g.add_argument(
         "--nvgpu", action="store", default=None, help="Set guest NVIDIA GPU."
+    )
+
+    g.add_argument(
+        "--preserve-env",
+        nargs="?",
+        metavar="VARS",
+        const=[],
+        type=colon_list,
+        help="Environment variables to bring into the virtual machine's environment. No value means all. A comma separated list specifies these variables specifically.",
     )
 
     g = parser.add_argument_group(title="Remote Console")
@@ -1381,6 +1393,19 @@ def do_it() -> int:
 
     for i, d in enumerate(args.overlay_rwdir):
         kernelargs.append(f"virtme_rw_overlay{i}={d}")
+
+    def make_env_string(varss = None):
+        if varss is None:
+            d = os.environ
+        else:
+            d = {k: os.environ.get(k) for k in varss if os.environ.get(k) is not None}
+
+        d = {k: b64encode(v.encode("utf-8")).decode("utf-8") for k, v in d.items()}
+        return ":".join(f"{k}={v}" for k, v in d.items())
+
+    if args.preserve_env is not None:
+        val = make_env_string(None if args.preserve_env == [] else args.preserve_env)
+        kernelargs.append(f"virtme_envvars={val}")
 
     # Turn on KVM if available
     kvm_ok = can_use_kvm(args)

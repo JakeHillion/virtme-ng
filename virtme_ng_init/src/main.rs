@@ -818,6 +818,18 @@ fn setup_root_home() {
     }
 }
 
+fn setup_environment_variables() {
+    if let Ok(vs) = env::var("virtme_envvars") {
+        for v in vs.split(':') {
+            let (k, v) = v.split_once('=').expect("virtme_envvars formatted incorrectly");
+            let v = BASE64.decode(v).expect("virtme_envvars formatted incorrectly");
+            let v = String::from_utf8(v).expect("virtme_envvars formatted incorrectly");
+
+            env::set_var(k, v)
+        }
+    }
+}
+
 fn clear_virtme_envs() {
     // Parameters that start with virtme_* shouldn't pollute the environment.
     for (key, _) in env::vars() {
@@ -995,6 +1007,7 @@ fn setup_user_session() {
     configure_terminal(consdev.as_str(), uid);
     init_xdg_runtime_dir(uid);
     setup_root_home();
+    setup_environment_variables();
 
     log!("initialization done");
 

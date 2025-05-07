@@ -294,6 +294,13 @@ if [[ -n ${vsock_exec} ]]; then
         "EXEC:\"${vsock_exec}\",pty,stderr,setsid,sigint,sane,echo=0" &
 fi
 
+for _pair in ${virtme_envvars//:/ }; do
+  IFS='=' read -r _key _b64 <<< "$_pair"
+  if [[ -n "$_b64" ]]; then
+    export "$_key=$(printf '%s' "$_b64" | base64 --decode)"
+  fi
+done
+
 user_cmd=$(sed -ne "s/.*virtme.exec=\`\(.*\)\`.*/\1/p" /proc/cmdline)
 if [[ -n ${user_cmd} ]]; then
     if [[ ! -e "/dev/virtio-ports/virtme.stdin" ||

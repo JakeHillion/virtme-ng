@@ -85,6 +85,9 @@ def check_call_cmd(command, quiet=False, dry_run=False):
 def make_parser():
     """Main virtme-ng command line parser."""
 
+    def colon_list(s):
+        return s.split(":")
+
     parser = argparse.ArgumentParser(
         prog="vng",
         formatter_class=argparse.RawTextHelpFormatter,
@@ -497,6 +500,16 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         action="store",
         metavar="[GPU PCI Address]",
         help="Add a passthrough NVIDIA GPU",
+    )
+
+    parser.add_argument(
+        "--preserve-env",
+        "-E",
+        nargs="?",
+        metavar="VARS",
+        const=[],
+        type=colon_list,
+        help="Environment variables to bring into the virtual machine's environment. No value means all. A comma separated list specifies these variables specifically.",
     )
 
     g_remote = parser.add_argument_group(title="Remote Console")
@@ -1276,6 +1289,16 @@ class KernelSource:
             cpus = args.cpus
         self.virtme_param["cpus"] = f"--cpus {cpus}"
 
+    def _get_virtme_preserve_env(self, args):
+        if args.preserve_env is None:
+            env_args = ""
+        elif args.preserve_env == []:
+            env_args = "--preserve-env"
+        else:
+            env_args = "--preserve-env " + ":".join(args.preserve_env)
+
+        self.virtme_param["preserve_env"] = env_args
+
     def _get_virtme_nvgpu(self, args):
         if args.nvgpu is not None:
             self.virtme_param["nvgpu"] = f"--nvgpu 'vfio-pci,host={args.nvgpu}'"
@@ -1338,6 +1361,7 @@ class KernelSource:
         self._get_virtme_snaps(args)
         self._get_virtme_busybox(args)
         self._get_virtme_nvgpu(args)
+        self._get_virtme_preserve_env(args)
         self._get_virtme_qemu(args)
         self._get_virtme_qemu_opts(args)
 
@@ -1386,6 +1410,7 @@ class KernelSource:
             + f"{self.virtme_param['snaps']} "
             + f"{self.virtme_param['busybox']} "
             + f"{self.virtme_param['nvgpu']} "
+            + f"{self.virtme_param['preserve_env']} "
             + f"{self.virtme_param['qemu']} "
             + f"{self.virtme_param['qemu_opts']} "
             # Important: qemu_opts has to be the last one
